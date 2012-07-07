@@ -8,7 +8,7 @@
 -- @name Main
 
 local _G = _G;
- 
+
 local MAJOR_VERSION = "iLib"
 local MINOR_VERSION = 1
 
