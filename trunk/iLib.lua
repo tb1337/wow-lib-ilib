@@ -168,11 +168,12 @@ local function smart_version_number(addon)
 end
 
 --- Register your addon with the iLib
--- @param addon The name of your addon. It is good-practise to use the name of your addons TOC file (without .toc).
--- @param version The version as integer. If its a string, iLib trys to create a version number from it.
+-- @param addonName The name of your addon. It is good-practise to use the name of your addons TOC file (without .toc).
+-- @param version The version as integer. If its a string, iLib trys to create a version number from it (e.g. 2.1.0 => 21000)
 -- @param addonTable Your addon table. Only use if you want to let iLib handle your tooltips.
--- @return Boolean Indicating if the registration was successful.
--- @usage LibStub("iLib"):Register("MyAddon")
+-- @return Returns a boolean which indicates whether the registering was successful or not.
+-- @usage LibStub("iLib"):Register("MyAddon") -- without frame handling
+-- @usage LibStub("iLib"):Register("MyAddon", nil, myAddon) -- iLib with frame handling
 function iLib:Register(addonName, version, addonTable)
 	if( not addonName ) then
 		error("Usage: Register(addonName [, version [, addonTable]])");
