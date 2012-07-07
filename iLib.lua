@@ -168,26 +168,26 @@ local function smart_version_number(addon)
 end
 
 --- Register your addon with the iLib
--- @name iLib:Register
--- @usage LibStub("iLib"):Register( "AddonName" [, version [, addonTable]] )
+-- @name iLib:Register(addonName [, version [, addonTable]])
+-- @usage LibStub("iLib"):Register("MyAddon")
 -- @param addon The name of your addon. It is good-practise to use the name of your addons TOC file (without .toc).
 -- @param version The version as integer. If its a string, iLib trys to create a version number from it.
 -- @param t Your addon table. Only use if you want to let iLib handle your tooltips.
 -- @return Boolean Indicating if the registration was successful.
-function iLib:Register(addon, version, t)
-	if( not addon ) then
-		error("Usage: Register( \"AddonName\" [, version [, addonTable]] )");
+function iLib:Register(addonName, version, t)
+	if( not addonName ) then
+		error("Usage: Register(addonName [, version [, addonTable]])");
 	end
 	
 	-- no version provided by addon, so we create it by ourselves
 	if not tonumber(version) then
-		version = smart_version_number(addon)
+		version = smart_version_number(addonName)
 	end
 	
-	if not self:Checkout(addon) then-- and _G.GetAddOnMetadata(addon, "Author") == 'grdn' then
-		self.mods[addon] = version
-		if type(t) == "table" then
-			self:Embed(t, addon)
+	if not self:Checkout(addonName) then-- and _G.GetAddOnMetadata(addon, "Author") == 'grdn' then
+		self.mods[addonName] = version
+		if type(addonTable) == "table" then
+			self:Embed(addonTable, addonName)
 		end
 		return true
 	end
