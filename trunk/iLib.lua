@@ -170,10 +170,10 @@ end
 --- Register your addon with the iLib
 -- @param addon The name of your addon. It is good-practise to use the name of your addons TOC file (without .toc).
 -- @param version The version as integer. If its a string, iLib trys to create a version number from it.
--- @param t Your addon table. Only use if you want to let iLib handle your tooltips.
+-- @param addonTable Your addon table. Only use if you want to let iLib handle your tooltips.
 -- @return Boolean Indicating if the registration was successful.
 -- @usage LibStub("iLib"):Register("MyAddon")
-function iLib:Register(addonName, version, t)
+function iLib:Register(addonName, version, addonTable)
 	if( not addonName ) then
 		error("Usage: Register(addonName [, version [, addonTable]])");
 	end
