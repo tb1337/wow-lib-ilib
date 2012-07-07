@@ -184,7 +184,7 @@ function iLib:Register(addonName, version, t)
 		version = smart_version_number(addonName)
 	end
 	
-	if not self:Checkout(addonName) then-- and _G.GetAddOnMetadata(addon, "Author") == 'grdn' then
+	if not self:Checkout(addonName) then-- and _G.GetAddOnMetadata(addonName, "Author") == 'grdn' then
 		self.mods[addonName] = version
 		if type(addonTable) == "table" then
 			self:Embed(addonTable, addonName)
