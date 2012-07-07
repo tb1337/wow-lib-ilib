@@ -1,3 +1,12 @@
+--- **iLib** allows you to sync addon versions with guild, party and battlegroudn players and enabled tooltip handling. \\
+-- Since I force on LDB plugins, there are many functions that need to be present in every plugin. I could copy and paste 
+-- them into every addon (and I used to do it), but imagine you have installed ten plugins of mine. That would mean ten 
+-- times the same frame handler functions in your memory, etc. From now on, my addons simply register with iLib. Yours 
+-- could do that as well, in order to benefit from automatic addon version syncing. Using the tooltip handling is optional. \\
+-- **AceComm-3.0, LibCompress, LibQTip-1.0, LibStub** are embedded.
+-- @class file
+-- @name Main
+
 local _G = _G;
 
 local MAJOR_VERSION = "iLib"
@@ -168,12 +177,11 @@ local function smart_version_number(addon)
 end
 
 --- Register your addon with the iLib
--- @name iLib:Register(addonName [, version [, addonTable]])
--- @usage LibStub("iLib"):Register("MyAddon")
 -- @param addon The name of your addon. It is good-practise to use the name of your addons TOC file (without .toc).
 -- @param version The version as integer. If its a string, iLib trys to create a version number from it.
 -- @param t Your addon table. Only use if you want to let iLib handle your tooltips.
 -- @return Boolean Indicating if the registration was successful.
+-- @usage LibStub("iLib"):Register("MyAddon")
 function iLib:Register(addonName, version, t)
 	if( not addonName ) then
 		error("Usage: Register(addonName [, version [, addonTable]])");
