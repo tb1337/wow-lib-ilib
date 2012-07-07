@@ -1,4 +1,5 @@
 package-as: iLib
+enable-nolib-creation: no
 
 ignore:
   - Libs/AceComm-3.0
