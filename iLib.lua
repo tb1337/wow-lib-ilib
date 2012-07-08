@@ -248,15 +248,15 @@ end
 
 local LibQTip = LibStub("LibQTip-1.0")
 
---- **This function is only available on your addon table if you registered it with the iLib.**
+--- **This function is only available on your addon table if you registered it with the iLib.**\\
 -- Creates a LibQTip tooltip object and passes it a few settings. 
--- To fill the tooltip with content before showing, you must specify the UpdateTooltip(...) method in your addon table.
+-- To fill the tooltip with content before showing, you must specify the UpdateTooltip(...) method in your addon table.\\
 -- **Important**: The tooltip will also become available through myAddon.tooltip
 -- @param anchor OPTIONAL: The desired anchor where LibQTip can SmartAnchor it to. Usually a frame.
 -- @param noAutoHide OPTIONAL: Set this to true if LibQTip:SetAutoHideDelay shall not be set. If false, iLib requires you to set an anchor.
 -- @param varToPass OPTIONAL: An additional value to be passed to myAddon.UpdateTooltip
 -- @return Returns the tooltip object.
--- @usage -- Tooltip which is not anchored and not hidden when leaving it with the mouse.
+-- @usage -- Tooltip which is not anchored & hidden when leaving it with the mouse.
 -- local tip = myAddon:GetTooltip()
 -- @usage -- Tooltip which is SmartAnchored to PlayerFrame
 -- local tip = myAddon:GetTooltip(PlayerFrame)
@@ -265,6 +265,7 @@ local LibQTip = LibStub("LibQTip-1.0")
 -- local tip = myAddon:GetTooltip(PlayerFrame, true)
 -- @usage -- Passing a var to UpdateTooltip
 -- local tip = myAddon:GetTooltip(nil, nil, "Hello World!")
+-- 
 -- function myAddon:UpdateTooltip(tooltip, varToPass)
 --   tooltip:AddHeader(varToPass)
 -- end
@@ -302,10 +303,24 @@ local function tip_OnUpdate(self, elapsed)
 	end
 end
 
+--- **This function is only available on your addon table if you registered it with the iLib.**\\
+-- Some addons may want to show two tooltips at once, which behaves like one tooltip.
+-- **Important**: The tooltip will also become available through myAddon.tooltip2
+-- @param depMode Boolean. If enabled, will merge tooltip1/tooltip2 and make them behave similar.
+-- @param anchor OPTIONAL: The desired anchor where LibQTip can SmartAnchor it to. Usually a frame.
+-- @param noAutoHide OPTIONAL: Set this to true if LibQTip:SetAutoHideDelay shall not be set. If false, iLib requires you to set an anchor.
+-- @param varToPass OPTIONAL: An additional value to be passed to myAddon.UpdateTooltip
+-- @return Returns the tooltip object.
+-- @usage -- If anchor, tip1 and tip2 lost mouse focus, both tips will hide
+-- myAddon:GetTooltip(anchor)
+-- myAddon:Get2ndTooltip(true, anchor)
 function iLib:Get2ndTooltip(depMode, anchor, noAutoHide, varToPass)
 	local tip = LibQTip:Acquire("iAddon"..self.baseName.."2")
 	self.tooltip2 = tip
-	if depMode then
+	if depMode and anchor then
+		if not self:IsTooltip() then
+			error("You need to use GetTooltip() before using depMode on Get2ndTooltip()!")
+		end
 		tip:SetPoint("TOPLEFT", self.tooltip, "BOTTOMLEFT", 0, 0)
 		self.tooltip.tip2 = tip
 		self.tooltip.anchor = anchor
