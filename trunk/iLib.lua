@@ -1,8 +1,4 @@
-local _G = _G;
-
-local MAJOR_VERSION = "iLib"
-local MINOR_VERSION = 1
-
+local MAJOR_VERSION, MINOR_VERSION = "iLib", 2
 if not LibStub then error(MAJOR_VERSION .. " requires LibStub") end
 
 local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
@@ -11,11 +7,13 @@ if not iLib then
 end
 LibStub("AceComm-3.0"):Embed(iLib)
 
+local _G = _G
+
 local ME_UPDATE, EQUAL, USER_UPDATE = 1, 2, 3
 
 local inParty = false
 local addonsChanged = false
-local player = _G.GetUnitName("player") .."2"
+local player = _G.GetUnitName("player")
 
 iLib.mods = iLib.mods or {}
 setmetatable(iLib.mods, {__newindex = function(t, k, v)
@@ -160,20 +158,23 @@ local function smart_version_number(addon)
 	if tonumber(aver) then
 		return aver
 	end
-	local major, minor, rev = strsplit(".", aver)
+	local _, _, major, minor, rev = string.find(aver, "(%d).(%d).(%d)");
 	major = tonumber(major) and major or 0
 	minor = tonumber(minor) and minor or 0
 	rev   = tonumber( rev ) and  rev  or 0
 	return (major * 10000) + (minor * 1000) + rev
 end
 
---- Register your addon with the iLib
+--- Registers an addon with the iLib
 -- @param addonName The name of your addon. It is good-practise to use the name of your addons TOC file (without .toc).
--- @param version The version as integer. If its a string, iLib trys to create a version number from it (e.g. 2.1.0 => 21000)
+-- @param version The version as number. If its a string, iLib trys to create a number from it (e.g. 2.1.0 => 21000)
 -- @param addonTable Your addon table. Only use if you want to let iLib handle your tooltips.
 -- @return Returns a boolean which indicates whether the registering was successful or not.
--- @usage LibStub("iLib"):Register("MyAddon") -- without frame handling
--- @usage LibStub("iLib"):Register("MyAddon", nil, myAddon) -- iLib with frame handling
+-- @usage -- without tooltip  handling
+-- LibStub("iLib"):Register("MyAddon")
+-- LibStub("iLib"):Register("MyAddon", 10200)
+-- @usage -- with tooltip handling
+-- LibStub("iLib"):Register("MyAddon", nil, myAddon)
 function iLib:Register(addonName, version, addonTable)
 	if( not addonName ) then
 		error("Usage: Register(addonName [, version [, addonTable]])");
@@ -194,37 +195,50 @@ function iLib:Register(addonName, version, addonTable)
 	return false
 end
 
--- Checks if another iAddon is loaded
-function iLib:Checkout(addon)
-	if( not addon ) then
+--- Checks if the given addon is registered with the iLib.
+-- @param addonName The name of your addon.
+-- @return Returns a boolean which indicates whether the addon is registered or not.
+-- @usage if LibStub("iLib"):Checkout("MyAddon") then
+--   -- do something
+-- end
+function iLib:Checkout(addonName)
+	if( not addonName ) then
 		error("Usage: Checkout( \"AddonName\" )");
 	end
 	
-	if self.mods[addon] then
+	if self.mods[addonName] then
 		return true
 	end
 	return false
 end
 
--- Compares our version of an iAddon with another one
--- In addition, automatically informs us if WE need an update!
-function iLib:Compare(addon, version)
-	if( not addon or not version ) then
-		error("Usage: Checkout( \"AddonName\" , version_to_compare_with )");
+--- Compares the given addon and version with an addon registered with the iLib.
+-- @param addonName The name of the addon to compare with.
+-- @param version The version to compare with.
+-- @return Returns a number which indicates the result:
+-- * 1 = The version is higher than ours. We need to update. In this case, iLib automatically stores the new version number for further use.
+-- * 2 = Both versions are equal. This is also returned if the given addon isn't registered with iLib.
+-- * 3 = We have a higher version installed.
+-- @usage if LibStub("iLib"):Compare("MyAddon", 2034) == USER_UPDATE then
+--   SendChatMessage("you should update your addon "..addonName, "WHISPER", nil, "user")
+-- end
+function iLib:Compare(addonName, version)
+	if( not addonName or not version ) then
+		error("Usage: Checkout( \"AddonName\" , version)");
 	end
 	
-	if not self:Checkout(addon) then
+	if not self:Checkout(addonName) then
 		return EQUAL
 	end
 	
-	if self.mods[addon] < version then
-		if self.update[addon] then
-			self.update[addon] = version > self.update[addon] and version or self.update[addon]
+	if self.mods[addonName] < version then
+		if self.update[addonName] then
+			self.update[addonName] = version > self.update[addonName] and version or self.update[addonName]
 		else
-			self.update[addon] = version
+			self.update[addonName] = version
 		end
 		return ME_UPDATE
-	elseif self.mods[addon] > version then
+	elseif self.mods[addonName] > version then
 		return USER_UPDATE
 	else
 		return EQUAL
