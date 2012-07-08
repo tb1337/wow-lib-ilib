@@ -11,9 +11,13 @@ local _G = _G
 
 local ME_UPDATE, EQUAL, USER_UPDATE = 1, 2, 3
 
-local inParty = false
+local inGroup = false
 local addonsChanged = false
 local player = _G.GetUnitName("player")
+
+local askGuild = true
+local askGroup = true
+local askPVP   = true
 
 iLib.mods = iLib.mods or {}
 setmetatable(iLib.mods, {__newindex = function(t, k, v)
@@ -69,26 +73,34 @@ do
 	end
 end
 
+function add_user_warn(user, addon, chat)
+	if not iLib.frame.warn[user] then
+		iLib.frame.warn[user] = {}
+	end
+	if not _G.tContains(iLib.frame.warn[user], addon) then
+		table.insert(iLib.frame.warn[user], addon)
+		table.insert(iLib.frame.warn[user], iLib.mods[addon])
+		table.insert(iLib.frame.warn[user], chat)
+	end
+end
+
 function iLib:CommReceived(prefix, msg, chat, user)
 	msg = msgdecode(msg)
+	--@do-not-package@
+	print(user.." ("..chat..") - "..msg)
+	--@end-do-not-package@
 	if user == player then
 		return
 	end
 	
+	local dest, addon, version
 	local t = {strsplit(":", msg)}
+	
 	if t[1] == "?" or t[1] == "!" then
-		local addon, version
 		for i = 2, #t do
 			addon, version = strsplit("-", t[i])
-			if t[1] == "?" and self:Compare(addon, tonumber(version)) == USER_UPDATE then
-				if not self.frame.warn[user] then
-					self.frame.warn[user] = {}
-				end
-				if not _G.tContains(self.frame.warn[user], addon) then
-					table.insert(self.frame.warn[user], addon)
-					table.insert(self.frame.warn[user], self.mods[addon])
-					table.insert(self.frame.warn[user], chat)
-				end
+			if self:Compare(addon, tonumber(version)) == USER_UPDATE then
+				add_user_warn(user, addon, chat)
 			end
 		end
 	end
@@ -96,23 +108,27 @@ end
 iLib:RegisterComm("iLib", "CommReceived")
 
 local function iLib_OnEvent(self, event)
-	if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_GUILD_UPDATE" then
+	if askGuild and (event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_GUILD_UPDATE") then
 		if _G.IsInGuild() then
+			askGuild = false
 			send_ask_message("GUILD")
 		end
 	end
-	if event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE" then
+	if askGroup and (event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE") then
 		if _G.IsInRaid() or _G.IsInGroup() then
 			if not inParty then
-				inParty = true
+				inGroup = true
+				askGroup = false
 				send_ask_message("RAID")
 			end
 		else
-			inParty = false
+			inGroup = false
+			askGroup = true
 		end
 	end
-	if event == "PLAYER_ENTERING_WORLD" then
+	if askPVP and event == "PLAYER_ENTERING_WORLD" then
 		if _G.UnitInBattleground("player") then
+			askPVP = false
 			send_ask_message("BATTLEGROUND")
 		end
 	end
@@ -139,7 +155,7 @@ local function init_frame()
 	f.warnTime = 0
 	setmetatable(f.warn, {__newindex = function(t, k, v)
 		t[1] = true
-		t[2] = (random(8, 50) / 10)
+		t[2] = (random(9.5, 50) / 10)
 		f.warnTime = 0
 		rawset(t, k, v)
 	end})
@@ -249,8 +265,7 @@ end
 local LibQTip = LibStub("LibQTip-1.0")
 
 --- **This function is only available on your addon table if you registered it with the iLib.**\\
--- Creates a LibQTip tooltip object and passes it a few settings. 
--- To fill the tooltip with content before showing, you must specify the UpdateTooltip(...) method in your addon table.\\
+-- Creates a LibQTip tooltip object and passes it a few settings. To fill the tooltip with content before showing, you must specify the UpdateTooltip(...) method in your addon table.\\
 -- **Important**: The tooltip will also become available through myAddon.tooltip
 -- @param anchor OPTIONAL: The desired anchor where LibQTip can SmartAnchor it to. Usually a frame.
 -- @param noAutoHide OPTIONAL: Set this to true if LibQTip:SetAutoHideDelay shall not be set. If false, iLib requires you to set an anchor.
@@ -304,7 +319,7 @@ local function tip_OnUpdate(self, elapsed)
 end
 
 --- **This function is only available on your addon table if you registered it with the iLib.**\\
--- Some addons may want to show two tooltips at once, which behaves like one tooltip.
+-- Some addons may want to show two tooltips at once, which behave like one tooltip. The 2nd tooltip may also behave like a normal one, if no depMode is defined.\\
 -- **Important**: The tooltip will also become available through myAddon.tooltip2
 -- @param depMode Boolean. If enabled, will merge tooltip1/tooltip2 and make them behave similar.
 -- @param anchor OPTIONAL: The desired anchor where LibQTip can SmartAnchor it to. Usually a frame.
@@ -341,11 +356,20 @@ function iLib:Get2ndTooltip(depMode, anchor, noAutoHide, varToPass)
 	return tip
 end
 
+--- **This function is only available on your addon table if you registered it with the iLib.**\\
+-- Returns info whether the given tooltip is acquired or not.\\
+-- @param second If true, will check for the 2ndTooltip instead of the normal one.
+-- @return Returns true or false.
+-- @usage if myAddon:IsTooltip() then
+--   -- do something with tooltip
+-- end
 function iLib:IsTooltip(second)
 	return LibQTip:IsAcquired("iAddon"..self.baseName..(second and "2" or ""))
 end
 
--- We want to hide other iTooltips
+--- **This function is only available on your addon table if you registered it with the iLib.**\\
+-- Hides all tooltips which are shown by the iLib.
+-- @usage myAddon:HideAllTooltips()
 function iLib:HideAllTooltips()
 	for k, v in LibQTip:IterateTooltips() do
 		if type(k) == "string" and strsub(k, 1, 6) == "iAddon"  then
@@ -354,6 +378,11 @@ function iLib:HideAllTooltips()
 	end
 end
 
+--- **This function is only available on your addon table if you registered it with the iLib.**\\
+-- Checks if both the main and the second tooltip are shown and executes myAddon:UpdateTooltip(...)
+-- @param varToPass Gets passed to the main tooltip.
+-- @param varToPass2 Gets passed to the second tooltip.
+-- @usage myAddon:HideAllTooltips()
 function iLib:CheckForTooltip(varToPass, varToPass2)
 	if self.UpdateTooltip then
 		if self:IsTooltip() then
