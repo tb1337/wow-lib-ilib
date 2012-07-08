@@ -158,7 +158,7 @@ local function smart_version_number(addon)
 	if tonumber(aver) then
 		return aver
 	end
-	local _, _, major, minor, rev = string.find(aver, "(%d).(%d).(%d)");
+	local _, _, major, minor, rev = string.find(aver, "(%d).(%d).(%d)")
 	major = tonumber(major) and major or 0
 	minor = tonumber(minor) and minor or 0
 	rev   = tonumber( rev ) and  rev  or 0
@@ -175,9 +175,10 @@ end
 -- LibStub("iLib"):Register("MyAddon", 10200)
 -- @usage -- with tooltip handling
 -- LibStub("iLib"):Register("MyAddon", nil, myAddon)
+-- LibStub("iLib"):Register("MyAddon", 10200, myAddon)
 function iLib:Register(addonName, version, addonTable)
-	if( not addonName ) then
-		error("Usage: Register(addonName [, version [, addonTable]])");
+	if not addonName then
+		error("Usage: Register(addonName [, version [, addonTable]])")
 	end
 	
 	-- no version provided by addon, so we create it by ourselves
@@ -202,8 +203,8 @@ end
 --   -- do something
 -- end
 function iLib:Checkout(addonName)
-	if( not addonName ) then
-		error("Usage: Checkout( \"AddonName\" )");
+	if not addonName then
+		error("Usage: Checkout( \"AddonName\" )")
 	end
 	
 	if self.mods[addonName] then
@@ -220,11 +221,11 @@ end
 -- * 2 = Both versions are equal. This is also returned if the given addon isn't registered with iLib.
 -- * 3 = We have a higher version installed.
 -- @usage if LibStub("iLib"):Compare("MyAddon", 2034) == USER_UPDATE then
---   SendChatMessage("you should update your addon "..addonName, "WHISPER", nil, "user")
+--   SendChatMessage("addon update: "..addonName, "WHISPER", nil, "user")
 -- end
 function iLib:Compare(addonName, version)
-	if( not addonName or not version ) then
-		error("Usage: Checkout( \"AddonName\" , version)");
+	if not addonName or not version then
+		error("Usage: Checkout( \"AddonName\" , version)")
 	end
 	
 	if not self:Checkout(addonName) then
@@ -247,15 +248,34 @@ end
 
 local LibQTip = LibStub("LibQTip-1.0")
 
--- We want to get a tooltip
+--- **This function is only available on your addon table if you registered it with the iLib.**
+-- Creates a LibQTip tooltip object and passes it a few settings. 
+-- To fill the tooltip with content before showing, you must specify the UpdateTooltip(...) method in your addon table.
+-- **Important**: The tooltip will also become available through myAddon.tooltip
+-- @param anchor OPTIONAL: The desired anchor where LibQTip can SmartAnchor it to. Usually a frame.
+-- @param noAutoHide OPTIONAL: Set this to true if LibQTip:SetAutoHideDelay shall not be set. If false, iLib requires you to set an anchor.
+-- @param varToPass OPTIONAL: An additional value to be passed to myAddon.UpdateTooltip
+-- @return Returns the tooltip object.
+-- @usage -- Tooltip which is not anchored and not hidden when leaving it with the mouse.
+-- local tip = myAddon:GetTooltip()
+-- @usage -- Tooltip which is SmartAnchored to PlayerFrame
+-- local tip = myAddon:GetTooltip(PlayerFrame)
+-- @usage -- Tooltip which is SmartAnchored to PlayerFrame
+-- -- and hidden when leaving both PlayerFrame or tooltip
+-- local tip = myAddon:GetTooltip(PlayerFrame, true)
+-- @usage -- Passing a var to UpdateTooltip
+-- local tip = myAddon:GetTooltip(nil, nil, "Hello World!")
+-- function myAddon:UpdateTooltip(tooltip, varToPass)
+--   tooltip:AddHeader(varToPass)
+-- end
 function iLib:GetTooltip(anchor, noAutoHide, varToPass)
 	local tip = LibQTip:Acquire("iAddon"..self.baseName)
 	self.tooltip = tip
 	if anchor then
 		tip:SmartAnchorTo(anchor)
-	end
-	if not noAutoHide then
-		tip:SetAutoHideDelay(0.25, anchor)
+		if not noAutoHide then
+			tip:SetAutoHideDelay(0.25, anchor)
+		end
 	end
 	if self.UpdateTooltip then
 		self:UpdateTooltip(tip, varToPass)
