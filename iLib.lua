@@ -284,168 +284,16 @@ end
 ---------------------------------------------------------------------------------------------------------------------
 
 local LibQTip = LibStub("LibQTip-1.0")
-
 local tipFadeAfter = 0.25
 
---- **This function is only available on your addon table if you registered it with the iLib.**\\
--- Creates a LibQTip tooltip object and passes it a few settings. To fill the tooltip with content before showing, you must specify the UpdateTooltip(...) method in your addon table.\\
--- **Important**: The tooltip will also become available through myAddon.tooltip
--- @param anchor OPTIONAL: The desired anchor where LibQTip can SmartAnchor it to. Usually a frame.
--- @param noAutoHide OPTIONAL: Set this to true if LibQTip:SetAutoHideDelay shall not be set. If false, iLib requires you to set an anchor.
--- @param varToPass OPTIONAL: An additional value to be passed to myAddon.UpdateTooltip
--- @return Returns the tooltip object.
--- @usage -- Tooltip which is not anchored & hidden when leaving it with the mouse.
--- local tip = myAddon:GetTooltip()
--- @usage -- Tooltip which is SmartAnchored to PlayerFrame
--- -- and hidden when leaving both PlayerFrame or tooltip
--- local tip = myAddon:GetTooltip(PlayerFrame)
--- @usage -- Passing a var to UpdateTooltip
--- local tip = myAddon:GetTooltip(nil, nil, "Hello World!")
--- 
--- function myAddon:UpdateTooltip(tooltip, varToPass)
---   tooltip:AddHeader(varToPass)
--- end
-function iLib:GetTooltip(anchor, noAutoHide, varToPass)
-	if self:IsTooltip() then
-		return LibQTip:Acquire("iAddon"..self.baseName), true
-	end
-	local tip = LibQTip:Acquire("iAddon"..self.baseName)
-	if anchor then
-		tip:SmartAnchorTo(anchor)
-		if not noAutoHide then
-			tip:SetAutoHideDelay(tipFadeAfter, anchor)
-		end
-	end
-	if self.UpdateTooltip then
-		self:UpdateTooltip(tip, varToPass)
-	end
-	tip:Show()
-	return tip
-end
-
-local function tip_OnUpdate(self, elapsed)
-	if (self.anchor and self.anchor:IsMouseOver()) or self:IsMouseOver() or self.tip2:IsMouseOver() then
-		self.lastUpdate = 0
-		return;
-	end
-	
-	self.lastUpdate = self.lastUpdate + elapsed;
-	if( self.lastUpdate >= tipFadeAfter ) then
-		iLib:HideTooltip(false, self)
-		iLib:HideTooltip(false, self.tip2)
-		self.lastUpdate = nil;
-		self.tip2 = nil
-		self.anchor = nil;
-		self[''] = 1
-		self[''] = nil
-		self:SetScript("OnUpdate", nil);
-	end
-end
-
---- **This function is only available on your addon table if you registered it with the iLib.**\\
--- Some addons may want to show two tooltips at once, which behave like one tooltip. The 2nd tooltip may also behave like a normal one, if no depMode is defined.\\
--- **Important**: The tooltip will also become available through myAddon.tooltip2
--- @param depMode If true, will merge tooltip1/tooltip2 and make them behave similar.
--- @param anchor OPTIONAL: The desired anchor where LibQTip can SmartAnchor it to. Usually a frame.
--- @param noAutoHide OPTIONAL: Set this to true if LibQTip:SetAutoHideDelay shall not be set. If false, iLib requires you to set an anchor.
--- @param varToPass OPTIONAL: An additional value to be passed to myAddon.UpdateTooltip
--- @return Returns the tooltip object.
--- @usage -- If anchor, tip1 and tip2 lost mouse focus, both tips will hide
--- myAddon:GetTooltip(anchor)
--- myAddon:Get2ndTooltip(true, anchor)
-function iLib:Get2ndTooltip(depMode, anchor, noAutoHide, varToPass)
-	if self:IsTooltip(true) then
-		return LibQTip:Acquire("i2Addon"..self.baseName), true
-	end
-	local tip = LibQTip:Acquire("i2Addon"..self.baseName)
-	if depMode and anchor then
-		if not self:IsTooltip() then
-			error("You need to use GetTooltip() before using depMode on Get2ndTooltip()!")
-		end
-		local maintip = self:GetTooltip()
-		maintip.lastUpdate = 0
-		maintip.tip2 = tip
-		maintip.anchor = anchor
-		maintip:SetScript("OnUpdate", tip_OnUpdate)
-	else
-		if anchor then
-			tip:SmartAnchorTo(anchor)
-		end
-		if not noAutoHide then
-			tip:SetAutoHideDelay(tipFadeAfter, anchor)
-		end
-	end
-	if self.UpdateTooltip then
-		self:UpdateTooltip(tip, varToPass)
-	end
-	tip:Show()
-	return tip
-end
-
---- **This function is only available on your addon table if you registered it with the iLib.**\\
--- Returns info whether the given tooltip is acquired or not.\\
--- @param second If true, will check for the 2ndTooltip instead of the normal one.
--- @return Returns true or false.
--- @usage if myAddon:IsTooltip() then
---   -- do something with tooltip
--- end
-function iLib:IsTooltip(second)
-	return LibQTip:IsAcquired("i"..(second and "2" or "").."Addon"..self.baseName)
-end
-
---- **This function is only available on your addon table if you registered it with the iLib.**\\
--- Hides all tooltips which are shown by the iLib.
--- @usage myAddon:HideAllTooltips()
-function iLib:HideAllTooltips()
-	for k, v in LibQTip:IterateTooltips() do
-		if type(k) == "string" and (strsub(k, 1, 6) == "iAddon" or strsub(k, 1, 7) == "i2Addon") then
-			self:HideTooltip(false, v)
-		end
-	end
-end
-
---- **This function is only available on your addon table if you registered it with the iLib.**\\
--- Hides a specific tooltip which was previously shown by the iLib.
--- @param second If true, hides the second tooltip, if false, hides the main tooltip
--- @param tip LibQTip tooltip object. This tooltip will be hidden instead of tip1/tip2.
--- @usage myAddon:HideTooltip() -- hides main tooltip
--- myAddon:HideTooltip(true) -- hides second tooltip
--- myAddon:HideTooltip(nil, LibQTip_object) -- hides the given tooltip
-function iLib:HideTooltip(second, tip)
-	if not second then
-		if tip then
-			tip:Release()
-		else
-			self:GetTooltip():Release()
-		end
-	else
-		self:Get2ndTooltip():Release()
-	end
-end
-
---- **This function is only available on your addon table if you registered it with the iLib.**\\
--- Checks if both the main and the second tooltip are shown and executes myAddon:UpdateTooltip(...)
--- @param varToPass Gets passed to the main tooltip.
--- @param varToPass2 Gets passed to the second tooltip.
--- @usage myAddon:HideAllTooltips()
-function iLib:CheckForTooltip(varToPass, varToPass2)
-	if self.UpdateTooltip then
-		if self:IsTooltip() then
-			self:UpdateTooltip(self:GetTooltip(), varToPass)
-		end
-		if self:IsTooltip(true) then
-			self:UpdateTooltip(self:Get2ndTooltip(), varToPass2)
-		end
-	end
-end
+local tips = {}
 
 local mixins = {
 	"GetTooltip",
-	"Get2ndTooltip",
 	"IsTooltip",
-	"CheckForTooltip",
+	"CheckTooltips",
 	"HideAllTooltips",
-	"HideTooltip"
+	"SetSharedAutoHideDelay"
 }
 
 function iLib:Embed(t, addon)
@@ -453,6 +301,90 @@ function iLib:Embed(t, addon)
 		t[v] = self[v]
 	end
 	t.baseName = addon
+end
+
+local function tip_name(t, name)
+	return "iAddon"..(t.baseName or "Anonymous")..(name or "")
+end
+
+local function tooltip_update(t, name, name2)
+	if not name2 then
+		name2 = tip_name(t, name)
+	end
+	if type(t[tips[name2]]) == "function" then
+		t[tips[name2]](t, t:GetTooltip(name))
+	end
+end
+
+local function tip_OnRelease(tip)
+	tips[tip.key] = nil
+end
+
+function iLib:GetTooltip(name, updateCallback)
+	local name2 = tip_name(self, name)
+	if self:IsTooltip(name) then
+		return LibQTip:Acquire(name2)
+	end
+	tips[name2] = updateCallback
+	tooltip_update(self, name, name2)
+	name = LibQTip:Acquire(name2)
+	name.OnRelease = tip_OnRelease;
+	return name
+end
+
+function iLib:IsTooltip(name)
+	return LibQTip:IsAcquired(tip_name(self, name))
+end
+
+function iLib:CheckTooltips(...)
+	local name
+	for i = 1, select("#", ...) do
+		name = select(i, ...)
+		if self:IsTooltip(name) then
+			tooltip_update(self, name)
+		end
+	end
+end
+
+function iLib:HideAllTooltips()
+	for k, v in LibQTip:IterateTooltips() do
+		if type(k) == "string" and strsub(k, 1, 6) == "iAddon" then
+			v:Release()
+		end
+	end
+end
+
+local function tip_OnUpdate(self, elapsed)
+	for i, v in ipairs(self.frames) do
+		if v:IsMouseOver() then
+			self.lastUpdate = 0
+			break
+		end
+	end
+	
+	self.lastUpdate = self.lastUpdate + elapsed;
+	if( self.lastUpdate >= self.delay ) then
+		for i, v in ipairs(self.frames) do
+			if v.key then -- qtips actually have a "key"-key
+				v:Release()
+			end
+			v = nil
+		end
+		
+		self.lastUpdate = nil
+		self.frames[''] = 1
+		self.frames[''] = nil
+		self.frames = nil
+		
+		self:SetScript("OnUpdate", nil);
+	end
+end
+
+function iLib:SetSharedAutoHideDelay(delay, main, ...)
+	main.delay = delay
+	main.lastUpdate = 0
+	main.frames = {main, ...}
+	main:SetScript("OnUpdate", tip_OnUpdate)
 end
 
 collectgarbage() -- cheats, haha :)
