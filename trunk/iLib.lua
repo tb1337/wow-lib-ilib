@@ -1,4 +1,4 @@
-local MAJOR_VERSION, MINOR_VERSION = "iLib", 2
+local MAJOR_VERSION, MINOR_VERSION = "iLib", 5
 if not LibStub then error(MAJOR_VERSION .. " requires LibStub") end
 
 local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
@@ -73,6 +73,7 @@ do
 	end
 end
 
+-- adds a user to the warnlist
 function add_user_warn(user, addon, chat)
 	if not iLib.frame.warn[user] then
 		iLib.frame.warn[user] = {}
@@ -92,8 +93,7 @@ function iLib:CommReceived(prefix, msg, chat, user)
 	if user == player then
 		return
 	end
-	
-	local dest, addon, version
+	local addon, version
 	local t = {strsplit(":", msg)}
 	
 	if t[1] == "?" or t[1] == "!" then
@@ -107,6 +107,8 @@ function iLib:CommReceived(prefix, msg, chat, user)
 end
 iLib:RegisterComm("iLib", "CommReceived")
 
+-- Event Handler
+-- If we are logging in, we send Ask querys to guild (if in guild), group (if in group), pvp (if in pvp)
 local function iLib_OnEvent(self, event)
 	if askGuild and (event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_GUILD_UPDATE") then
 		if _G.IsInGuild() then
@@ -134,29 +136,30 @@ local function iLib_OnEvent(self, event)
 	end
 end
 
+-- The OnUpdate scripts, which currently just can warn users for a new addon version
+local warnTime, warnExec
 local function iLib_OnUpdate(self, elapsed)
-	self.warnTime = self.warnTime + elapsed
-	if self.warn[1] and self.warnTime >= self.warn[2] then
-		for k, v in pairs(self.warn) do
-			if type(k) ~= "number" then
-				send_update_message(k, unpack(self.warn[k]))
-				self.warn[k] = nil
-			end
+	self.warnElapsed = self.warnElapsed + elapsed
+	if warnExec and self.warnElapsed >= warnTime then
+		for user, v in pairs(self.warn) do
+			send_update_message(user, unpack(self.warn[user]))
+			self.warn[user] = nil
 		end
 		self.warn[''] = 1
 		self.warn[''] = nil
-		self.warn[1] = false
+		warnExec = false
 	end
 end
 
+-- This function inits our frame which will listen for events and OnUpdates
 local function init_frame()
 	local f = _G.CreateFrame("Frame")	
-	f.warn = {false, 0}
-	f.warnTime = 0
+	f.warn = {}
+	f.warnElapsed = 0
 	setmetatable(f.warn, {__newindex = function(t, k, v)
-		t[1] = true
-		t[2] = (random(9.5, 50) / 10)
-		f.warnTime = 0
+		warnTime = (random(9.5, 50) / 10)
+		warnExec = true
+		f.warnElapsed = 0
 		rawset(t, k, v)
 	end})
 	f:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -169,12 +172,14 @@ end
 iLib.frame = iLib.frame or init_frame()
 
 -- Smart version creator
+-- It loads the version from the TOC. If its a number, it gets returned
+-- If not, we bet that it is a string in the format major.minor.rev or at least major.minor
 local function smart_version_number(addon)
-	local aver = _G.GetAddOnMetadata(addon, "Version")
+	local aver = _G.GetAddOnMetadata(addon, "Version") or 0
 	if tonumber(aver) then
 		return aver
 	end
-	local _, _, major, minor, rev = string.find(aver, "(%d).(%d).(%d)")
+	local _, _, major, minor, rev = string.find(aver, "(%d).?(%d?).?(%d?)")
 	major = tonumber(major) and major or 0
 	minor = tonumber(minor) and minor or 0
 	rev   = tonumber( rev ) and  rev  or 0
@@ -185,11 +190,12 @@ end
 -- @param addonName The name of your addon. It is good-practise to use the name of your addons TOC file (without .toc).
 -- @param version The version as number. If its a string, iLib trys to create a number from it (e.g. 2.1.0 => 21000)
 -- @param addonTable Your addon table. Only use if you want to let iLib handle your tooltips.
--- @return Returns a boolean which indicates whether the registering was successful or not.
--- @usage -- without tooltip  handling
+-- @return Returns true if registration was successful.
+-- @usage -- without tooltip handling
 -- LibStub("iLib"):Register("MyAddon")
 -- LibStub("iLib"):Register("MyAddon", 10200)
--- @usage -- with tooltip handling
+-- 
+-- -- with tooltip handling
 -- LibStub("iLib"):Register("MyAddon", nil, myAddon)
 -- LibStub("iLib"):Register("MyAddon", 10200, myAddon)
 function iLib:Register(addonName, version, addonTable)
@@ -197,13 +203,13 @@ function iLib:Register(addonName, version, addonTable)
 		error("Usage: Register(addonName [, version [, addonTable]])")
 	end
 	
-	-- no version provided by addon, so we create it by ourselves
-	if not tonumber(version) then
-		version = smart_version_number(addonName)
-	end
-	
-	if not self:Checkout(addonName) then-- and _G.GetAddOnMetadata(addonName, "Author") == 'grdn' then
+	if not self:Checkout(addonName) then
+		-- no version provided by addon, so we create it by ourselves
+		if not tonumber(version) then
+			version = smart_version_number(addonName)
+		end
 		self.mods[addonName] = version
+		
 		if type(addonTable) == "table" then
 			self:Embed(addonTable, addonName)
 		end
@@ -212,9 +218,21 @@ function iLib:Register(addonName, version, addonTable)
 	return false
 end
 
+--- Checks whether there is an update for the given addon or not.
+-- @param addonName The name of the addon.
+-- @return False if no update, the version number if update.
+-- @usage local update = iLib:IsUpdate("myAddon")
+-- print(update and "New version: "..update or "No updates at all")
+function iLib:IsUpdate(addonName)
+	if self.mods[addonName] and self.update[addonName] then
+		return self.update[addonName]
+	end
+	return false
+end
+
 --- Checks if the given addon is registered with the iLib.
 -- @param addonName The name of your addon.
--- @return Returns a boolean which indicates whether the addon is registered or not.
+-- @return Returns true if the addon is registered.
 -- @usage if LibStub("iLib"):Checkout("MyAddon") then
 --   -- do something
 -- end
@@ -236,7 +254,7 @@ end
 -- * 1 = The version is higher than ours. We need to update. In this case, iLib automatically stores the new version number for further use.
 -- * 2 = Both versions are equal. This is also returned if the given addon isn't registered with iLib.
 -- * 3 = We have a higher version installed.
--- @usage if LibStub("iLib"):Compare("MyAddon", 2034) == USER_UPDATE then
+-- @usage if LibStub("iLib"):Compare("MyAddon", 2034) == 3 then
 --   SendChatMessage("addon update: "..addonName, "WHISPER", nil, "user")
 -- end
 function iLib:Compare(addonName, version)
@@ -262,7 +280,12 @@ function iLib:Compare(addonName, version)
 	end
 end
 
+---------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------
+
 local LibQTip = LibStub("LibQTip-1.0")
+
+local tipFadeAfter = 0.25
 
 --- **This function is only available on your addon table if you registered it with the iLib.**\\
 -- Creates a LibQTip tooltip object and passes it a few settings. To fill the tooltip with content before showing, you must specify the UpdateTooltip(...) method in your addon table.\\
@@ -274,10 +297,8 @@ local LibQTip = LibStub("LibQTip-1.0")
 -- @usage -- Tooltip which is not anchored & hidden when leaving it with the mouse.
 -- local tip = myAddon:GetTooltip()
 -- @usage -- Tooltip which is SmartAnchored to PlayerFrame
--- local tip = myAddon:GetTooltip(PlayerFrame)
--- @usage -- Tooltip which is SmartAnchored to PlayerFrame
 -- -- and hidden when leaving both PlayerFrame or tooltip
--- local tip = myAddon:GetTooltip(PlayerFrame, true)
+-- local tip = myAddon:GetTooltip(PlayerFrame)
 -- @usage -- Passing a var to UpdateTooltip
 -- local tip = myAddon:GetTooltip(nil, nil, "Hello World!")
 -- 
@@ -285,12 +306,14 @@ local LibQTip = LibStub("LibQTip-1.0")
 --   tooltip:AddHeader(varToPass)
 -- end
 function iLib:GetTooltip(anchor, noAutoHide, varToPass)
+	if self:IsTooltip() then
+		return LibQTip:Acquire("iAddon"..self.baseName), true
+	end
 	local tip = LibQTip:Acquire("iAddon"..self.baseName)
-	self.tooltip = tip
 	if anchor then
 		tip:SmartAnchorTo(anchor)
 		if not noAutoHide then
-			tip:SetAutoHideDelay(0.25, anchor)
+			tip:SetAutoHideDelay(tipFadeAfter, anchor)
 		end
 	end
 	if self.UpdateTooltip then
@@ -302,26 +325,27 @@ end
 
 local function tip_OnUpdate(self, elapsed)
 	if (self.anchor and self.anchor:IsMouseOver()) or self:IsMouseOver() or self.tip2:IsMouseOver() then
-		self.lastUpdate = 0;
+		self.lastUpdate = 0
 		return;
 	end
 	
 	self.lastUpdate = self.lastUpdate + elapsed;
-	if( self.lastUpdate >= 0.25 ) then
+	if( self.lastUpdate >= tipFadeAfter ) then
+		iLib:HideTooltip(false, self)
+		iLib:HideTooltip(false, self.tip2)
+		self.lastUpdate = nil;
+		self.tip2 = nil
 		self.anchor = nil;
-		self.lastUpdate = 0;
+		self[''] = 1
+		self[''] = nil
 		self:SetScript("OnUpdate", nil);
-		self:Hide();
-		self:Release();
-		self.tip2:Hide();
-		self.tip2:Release();
 	end
 end
 
 --- **This function is only available on your addon table if you registered it with the iLib.**\\
 -- Some addons may want to show two tooltips at once, which behave like one tooltip. The 2nd tooltip may also behave like a normal one, if no depMode is defined.\\
 -- **Important**: The tooltip will also become available through myAddon.tooltip2
--- @param depMode Boolean. If enabled, will merge tooltip1/tooltip2 and make them behave similar.
+-- @param depMode If true, will merge tooltip1/tooltip2 and make them behave similar.
 -- @param anchor OPTIONAL: The desired anchor where LibQTip can SmartAnchor it to. Usually a frame.
 -- @param noAutoHide OPTIONAL: Set this to true if LibQTip:SetAutoHideDelay shall not be set. If false, iLib requires you to set an anchor.
 -- @param varToPass OPTIONAL: An additional value to be passed to myAddon.UpdateTooltip
@@ -330,23 +354,25 @@ end
 -- myAddon:GetTooltip(anchor)
 -- myAddon:Get2ndTooltip(true, anchor)
 function iLib:Get2ndTooltip(depMode, anchor, noAutoHide, varToPass)
-	local tip = LibQTip:Acquire("iAddon"..self.baseName.."2")
-	self.tooltip2 = tip
+	if self:IsTooltip(true) then
+		return LibQTip:Acquire("i2Addon"..self.baseName), true
+	end
+	local tip = LibQTip:Acquire("i2Addon"..self.baseName)
 	if depMode and anchor then
 		if not self:IsTooltip() then
 			error("You need to use GetTooltip() before using depMode on Get2ndTooltip()!")
 		end
-		tip:SetPoint("TOPLEFT", self.tooltip, "BOTTOMLEFT", 0, 0)
-		self.tooltip.tip2 = tip
-		self.tooltip.anchor = anchor
-		self.tooltip.lastUpdate = 0
-		self.tooltip:SetScript("OnUpdate", tip_OnUpdate)
+		local maintip = self:GetTooltip()
+		maintip.lastUpdate = 0
+		maintip.tip2 = tip
+		maintip.anchor = anchor
+		maintip:SetScript("OnUpdate", tip_OnUpdate)
 	else
 		if anchor then
 			tip:SmartAnchorTo(anchor)
 		end
 		if not noAutoHide then
-			tip:SetAutoHideDelay(0.25, anchor)
+			tip:SetAutoHideDelay(tipFadeAfter, anchor)
 		end
 	end
 	if self.UpdateTooltip then
@@ -364,7 +390,7 @@ end
 --   -- do something with tooltip
 -- end
 function iLib:IsTooltip(second)
-	return LibQTip:IsAcquired("iAddon"..self.baseName..(second and "2" or ""))
+	return LibQTip:IsAcquired("i"..(second and "2" or "").."Addon"..self.baseName)
 end
 
 --- **This function is only available on your addon table if you registered it with the iLib.**\\
@@ -372,9 +398,28 @@ end
 -- @usage myAddon:HideAllTooltips()
 function iLib:HideAllTooltips()
 	for k, v in LibQTip:IterateTooltips() do
-		if type(k) == "string" and strsub(k, 1, 6) == "iAddon"  then
-			v:Release(k)
+		if type(k) == "string" and (strsub(k, 1, 6) == "iAddon" or strsub(k, 1, 7) == "i2Addon") then
+			self:HideTooltip(false, v)
 		end
+	end
+end
+
+--- **This function is only available on your addon table if you registered it with the iLib.**\\
+-- Hides a specific tooltip which was previously shown by the iLib.
+-- @param second If true, hides the second tooltip, if false, hides the main tooltip
+-- @param tip LibQTip tooltip object. This tooltip will be hidden instead of tip1/tip2.
+-- @usage myAddon:HideTooltip() -- hides main tooltip
+-- myAddon:HideTooltip(true) -- hides second tooltip
+-- myAddon:HideTooltip(nil, LibQTip_object) -- hides the given tooltip
+function iLib:HideTooltip(second, tip)
+	if not second then
+		if tip then
+			tip:Release()
+		else
+			self:GetTooltip():Release()
+		end
+	else
+		self:Get2ndTooltip():Release()
 	end
 end
 
@@ -386,10 +431,10 @@ end
 function iLib:CheckForTooltip(varToPass, varToPass2)
 	if self.UpdateTooltip then
 		if self:IsTooltip() then
-			self:UpdateTooltip(self.tooltip, varToPass)
+			self:UpdateTooltip(self:GetTooltip(), varToPass)
 		end
 		if self:IsTooltip(true) then
-			self:UpdateTooltip(self.tooltip2, varToPass2)
+			self:UpdateTooltip(self:Get2ndTooltip(), varToPass2)
 		end
 	end
 end
@@ -399,7 +444,8 @@ local mixins = {
 	"Get2ndTooltip",
 	"IsTooltip",
 	"CheckForTooltip",
-	"HideAllTooltips"
+	"HideAllTooltips",
+	"HideTooltip"
 }
 
 function iLib:Embed(t, addon)
