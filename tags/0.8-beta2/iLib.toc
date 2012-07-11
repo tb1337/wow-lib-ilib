@@ -1,0 +1,12 @@
+﻿## Interface: 50001
+## Version: 0.8
+## Title: Lib: iLib
+## Notes: A library which provides shared functionality for grdn's broker series.
+## Author: grdn
+
+Libs\LibStub\LibStub.lua
+Libs\AceComm-3.0\AceComm-3.0.xml
+Libs\LibCompress\lib.xml
+Libs\LibQTip-1.0\lib.xml
+
+lib.xml
