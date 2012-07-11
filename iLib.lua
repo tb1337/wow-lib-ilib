@@ -5,48 +5,51 @@ local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
 if not iLib then
 	return
 end
-LibStub("AceComm-3.0"):Embed(iLib)
+LibStub("AceComm-3.0"):Embed(iLib) -- we need this to communicate with other users for version syncing
 
 local _G = _G
 
-local ME_UPDATE, EQUAL, USER_UPDATE = 1, 2, 3
+local ME_UPDATE, EQUAL, USER_UPDATE = 1, 2, 3 -- currently we only use USER_UPDATE to check if we need to send an update message
 
-local inGroup = false
-local addonsChanged = false
+local inGroup = false -- determines if we are in a group
+local addonsChanged = false -- determines if new mods registered with the iLib
 local player = _G.GetUnitName("player")
 
-local askGuild = true
-local askGroup = true
-local askPVP   = true
+local askGuild = true -- will be false if we sent a version sync message to the guild
+local askGroup = true -- ...to the group
+local askPVP   = true -- ...to the battleground
+
+local Embed -- will become a function later
 
 iLib.mods = iLib.mods or {}
-setmetatable(iLib.mods, {__newindex = function(t, k, v)
+setmetatable(iLib.mods, {__newindex = function(t, k, v) -- new indexes in iLib.mods will cause addonsChanged to be true
 	rawset(t, k, v)
 	addonsChanged = true
 end})
 
-iLib.update = iLib.update or {}
+iLib.update = iLib.update or {} -- stores ADDONNAME/VERSION pairs if there is an update for us
 
-local function msgencode(msg)
-	return LibStub("LibCompress"):CompressHuffman(msg)
-end
+-- this makes sync messages unreadable and shorter
+local function msgencode(msg) return LibStub("LibCompress"):CompressHuffman(msg) end
+-- this makes it readable again
+local function msgdecode(msg) return LibStub("LibCompress"):DecompressHuffman(msg) end
 
-local function msgdecode(msg)
-	return LibStub("LibCompress"):DecompressHuffman(msg)
-end
-
+-- iLib currently uses two version syncing commands in the game:
+--  ?%addon1%version1%addon2%version2%..%addonN%versionN - asks other players if we are up to date
+--  !%addon1%version1%..%addonN%versionN - the respond only(!) includes addons which can be updated
+--  If playerX asked for updates, playerY will respond. If playerY isn't up to date, too, there is another !-message fired
 local send_ask_message
 do
 	local ask_str
+	
 	send_ask_message = function(chat)
 		if addonsChanged then
 			ask_str = "?"
 			for k, v in pairs(iLib.mods) do
-				ask_str = ask_str..":"..k.."-"..v
+				ask_str = ask_str.."%"..k.."%"..v
 			end
 			addonsChanged = false
 		end
-		
 		iLib:SendCommMessage("iLib", msgencode(ask_str), chat, nil, "BULK")
 	end
 end
@@ -54,18 +57,21 @@ end
 local send_update_message
 do
 	local t = {}
+	
 	send_update_message = function(user, ...)
 		local addon, version, chat
-		for i = 1, select("#", ...), 3 do
-			addon, version, chat = select(i, ...), select(i+1, ...), select(i+2, ...)
+		for i = 1, select("#", ...), 2 do
+			addon, chat = select(i, ...), select(i+1, ...)
+			version = iLib.mods[addon]
 			if not t[chat] then
 				t[chat] = {}
 			end
-			table.insert(t[chat], addon.."-"..version)
+			table.insert(t[chat], addon)
+			table.insert(t[chat], version)
 		end
 		
 		for chat, mods in pairs(t) do
-			iLib:SendCommMessage("iLib", msgencode("!:"..table.concat(mods, ":")), chat, (chat == "WHISPER" and user or nil))
+			iLib:SendCommMessage("iLib", msgencode("!%"..table.concat(mods, "%")), chat, (chat == "WHISPER" and user or nil))
 			t[chat] = nil
 		end
 		t[''] = 1
@@ -73,18 +79,39 @@ do
 	end
 end
 
--- adds a user to the warnlist
+-- iLib doesn't fire a message for every addon to be updated, it stores this kind of information in the "warn-list"
+-- The warn-list is a table, accessed by the name of the user, which holds an array with some informations.
+-- Each necessary update consists of two indexes in this array.
+--  index 1: the addon name
+--  index 2: the chat where to communicate
 function add_user_warn(user, addon, chat)
 	if not iLib.frame.warn[user] then
 		iLib.frame.warn[user] = {}
 	end
 	if not _G.tContains(iLib.frame.warn[user], addon) then
 		table.insert(iLib.frame.warn[user], addon)
-		table.insert(iLib.frame.warn[user], iLib.mods[addon])
 		table.insert(iLib.frame.warn[user], chat)
 	end
 end
 
+-- The OnUpdate scripts, which currently just can warn users for a new addon version
+local warnTime, warnExec
+local function iLib_OnUpdate(self, elapsed)
+	if not warnExec then return end
+	self.warnElapsed = self.warnElapsed + elapsed
+	if self.warnElapsed >= warnTime then
+		for user, v in pairs(self.warn) do
+			send_update_message(user, unpack(self.warn[user]))
+			self.warn[user] = nil
+		end
+		self.warn[''] = 1
+		self.warn[''] = nil
+		warnExec = false
+	end
+end
+
+-- On received a comm message, we check if its another player and warn him, if his versions are lower than ours
+-- We also warn player, if they warn another player, but with as well too low versions
 function iLib:CommReceived(prefix, msg, chat, user)
 	msg = msgdecode(msg)
 	--@do-not-package@
@@ -94,11 +121,11 @@ function iLib:CommReceived(prefix, msg, chat, user)
 		return
 	end
 	local addon, version
-	local t = {strsplit(":", msg)}
+	local t = {strsplit("%", msg)}
 	
 	if t[1] == "?" or t[1] == "!" then
-		for i = 2, #t do
-			addon, version = strsplit("-", t[i])
+		for i = 2, #t, 2 do
+			addon, version = t[i], t[i+1]
 			if self:Compare(addon, tonumber(version)) == USER_UPDATE then
 				add_user_warn(user, addon, chat)
 			end
@@ -109,6 +136,7 @@ iLib:RegisterComm("iLib", "CommReceived")
 
 -- Event Handler
 -- If we are logging in, we send Ask querys to guild (if in guild), group (if in group), pvp (if in pvp)
+-- And if our guild changes or the group changes
 local function iLib_OnEvent(self, event)
 	if askGuild and (event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_GUILD_UPDATE") then
 		if _G.IsInGuild() then
@@ -136,21 +164,6 @@ local function iLib_OnEvent(self, event)
 	end
 end
 
--- The OnUpdate scripts, which currently just can warn users for a new addon version
-local warnTime, warnExec
-local function iLib_OnUpdate(self, elapsed)
-	self.warnElapsed = self.warnElapsed + elapsed
-	if warnExec and self.warnElapsed >= warnTime then
-		for user, v in pairs(self.warn) do
-			send_update_message(user, unpack(self.warn[user]))
-			self.warn[user] = nil
-		end
-		self.warn[''] = 1
-		self.warn[''] = nil
-		warnExec = false
-	end
-end
-
 -- This function inits our frame which will listen for events and OnUpdates
 local function init_frame()
 	local f = _G.CreateFrame("Frame")	
@@ -173,9 +186,9 @@ iLib.frame = iLib.frame or init_frame()
 
 -- Smart version creator
 -- It loads the version from the TOC. If its a number, it gets returned
--- If not, we bet that it is a string in the format major.minor.rev or at least major.minor
+-- If not, we bet that its a string in the format major.minor.rev or at least major.minor
 local function smart_version_number(addon)
-	local aver = _G.GetAddOnMetadata(addon, "Version") or 0
+	local aver = _G.GetAddOnMetadata(addon, "Version") or 1
 	if tonumber(aver) then
 		return aver
 	end
@@ -187,9 +200,9 @@ local function smart_version_number(addon)
 end
 
 --- Registers an addon with the iLib
--- @param addonName The name of your addon. It is good-practise to use the name of your addons TOC file (without .toc).
--- @param version The version as number. If its a string, iLib trys to create a number from it (e.g. 2.1.0 => 21000)
--- @param addonTable Your addon table. Only use if you want to let iLib handle your tooltips.
+-- @param addonName Your addon's name. Please use the same name as in the TOC (for smart versioning).
+-- @param version The version as number. If its a string or nil, iLib trys to create a number from it (e.g. 2.1.0 => 21000)
+-- @param addonTable Your addon table. Only use if you want to use the iLib tooltip handler.
 -- @return Returns true if registration was successful.
 -- @usage -- without tooltip handling
 -- LibStub("iLib"):Register("MyAddon")
@@ -203,15 +216,15 @@ function iLib:Register(addonName, version, addonTable)
 		error("Usage: Register(addonName [, version [, addonTable]])")
 	end
 	
-	if not self:Checkout(addonName) then
+	if not self:IsRegistered(addonName) then
 		-- no version provided by addon, so we create it by ourselves
 		if not tonumber(version) then
 			version = smart_version_number(addonName)
 		end
 		self.mods[addonName] = version
-		
+		-- an addon table is present, so we embed the tooltip functions into it
 		if type(addonTable) == "table" then
-			self:Embed(addonTable, addonName)
+			Embed(addonTable, addonName)
 		end
 		return true
 	end
@@ -233,18 +246,15 @@ end
 --- Checks if the given addon is registered with the iLib.
 -- @param addonName The name of your addon.
 -- @return Returns true if the addon is registered.
--- @usage if LibStub("iLib"):Checkout("MyAddon") then
+-- @usage if LibStub("iLib"):IsRegistered("MyAddon") then
 --   -- do something
 -- end
-function iLib:Checkout(addonName)
+function iLib:IsRegistered(addonName)
 	if not addonName then
-		error("Usage: Checkout( \"AddonName\" )")
+		error("Usage: IsRegistered( \"AddonName\" )")
 	end
-	
-	if self.mods[addonName] then
-		return true
-	end
-	return false
+
+	return self.mods[addonName] and true or false
 end
 
 --- Compares the given addon and version with an addon registered with the iLib.
@@ -259,10 +269,10 @@ end
 -- end
 function iLib:Compare(addonName, version)
 	if not addonName or not version then
-		error("Usage: Checkout( \"AddonName\" , version)")
+		error("Usage: IsRegistered( \"AddonName\" , version)")
 	end
 	
-	if not self:Checkout(addonName) then
+	if not self:IsRegistered(addonName) then
 		return EQUAL
 	end
 	
@@ -296,17 +306,20 @@ local mixins = {
 	"SetSharedAutoHideDelay"
 }
 
-function iLib:Embed(t, addon)
+Embed = function(t, addon)
 	for i, v in ipairs(mixins) do
-		t[v] = self[v]
+		t[v] = iLib[v]
 	end
-	t.baseName = addon
+	t.baseName = addon -- I chose t.baseName because AceAddon-3.0 uses it, too - many mods use AceAddon-3.0 :)
 end
 
+-- creates an iLib tooltip name of t.baseName and name, e.g. iLibiFriendsMain
+-- this is necessary because the HideAllTooltips function hides all tooltip provided by the iLib
 local function tip_name(t, name)
-	return "iAddon"..(t.baseName or "Anonymous")..(name or "")
+	return "iLib"..(t.baseName or "Anonymous")..(name or "Main")
 end
 
+-- executes the tooltip update callback if there is one
 local function tooltip_update(t, name, name2)
 	if not name2 then
 		name2 = tip_name(t, name)
@@ -316,10 +329,22 @@ local function tooltip_update(t, name, name2)
 	end
 end
 
+-- this function is inserted to all Qtips by the iLib. So, on release, they will delete themselves out of the tips table
 local function tip_OnRelease(tip)
 	tips[tip.key] = nil
+	tips[''] = 1
+	tips[''] = nil
 end
 
+--- Acquires a LibQTip tooltip with the specified name and registers an updateCallback with it. This function becomes available on your addon table when you registered it via iLib:Register()!
+-- @param name The name for the tooltip object.
+-- @param updateCallback The function name of the function which fills the tooltip with content. Must be a String. The function must be available on your addon table.
+-- @return Returns a LibQTip object.
+-- @usage -- for registering a new tooltip
+-- local tip = myAddon:GetTooltip("Main", "UpdateTooltip")
+-- 
+-- -- for getting the previously registered tooltip object
+-- local tip = myAddon:GetTooltip("Main")
 function iLib:GetTooltip(name, updateCallback)
 	local name2 = tip_name(self, name)
 	if self:IsTooltip(name) then
@@ -332,10 +357,20 @@ function iLib:GetTooltip(name, updateCallback)
 	return name
 end
 
+--- Checks if a tooltip is currently displayed. This function becomes available on your addon table when you registered it via iLib:Register()!
+-- @param name The name of your tooltip.
+-- @return Returns true of your tooltip is displayed.
+-- @usage if myAddon:IsTooltip("Main") then
+--   -- do something
+-- end
 function iLib:IsTooltip(name)
 	return LibQTip:IsAcquired(tip_name(self, name))
 end
 
+--- Checks if the given tooltips are currently displayed and if yes, fires their update callback. This function becomes available on your addon table when you registered it via iLib:Register()!
+-- @param ... The names of the tooltips to be checked.
+-- @usage A WoW API event got fired and several tooltips needs an update.
+-- myAddon:CheckTooltips("Main", "Second", "Special", ...)
 function iLib:CheckTooltips(...)
 	local name
 	for i = 1, select("#", ...) do
@@ -346,6 +381,9 @@ function iLib:CheckTooltips(...)
 	end
 end
 
+--- Iterates over all LibQTip tooltips and hides them, if they are acquired by the iLib. This function becomes available on your addon table when you registered it via iLib:Register()!
+-- @usage myAddon:HideAllTooltips();
+-- -- All previously displayed tooltips are hidden now. You may want to display a new one, now.
 function iLib:HideAllTooltips()
 	for k, v in LibQTip:IterateTooltips() do
 		if type(k) == "string" and strsub(k, 1, 6) == "iAddon" then
@@ -370,16 +408,20 @@ local function tip_OnUpdate(self, elapsed)
 			end
 			v = nil
 		end
-		
 		self.lastUpdate = nil
 		self.frames[''] = 1
 		self.frames[''] = nil
 		self.frames = nil
-		
 		self:SetScript("OnUpdate", nil);
 	end
 end
 
+--- Sets a shared AutoHideDelay for an infinite number of frames. This will result in none tooltips are hidden, if one of the frames is hovered with your mouse. The more frames are specified, the more CPU is required. The first frame should always be a LibQTip object, since for example anchors often have their own OnUpdate scripts. This function becomes available on your addon table when you registered it via iLib:Register()!
+-- @param delay The time after all tooltips are hidden.
+-- @param main The LibQTip object to which the OnUpdate script will be attached.
+-- @param ... Infinite number of frames to check mouse hovering for.
+-- @usage myAddon:SetSharedAutoHideDelay(0.25, tip1, anchor, tip2)
+-- -- Neither tip1 or tip2 are hidden if one of the three frames is hovered with the cursor.
 function iLib:SetSharedAutoHideDelay(delay, main, ...)
 	main.delay = delay
 	main.lastUpdate = 0
