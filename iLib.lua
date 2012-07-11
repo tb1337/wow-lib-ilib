@@ -337,7 +337,6 @@ local function tip_OnRelease(tip)
 end
 
 --- Acquires a LibQTip tooltip with the specified name and registers an updateCallback with it. If the tooltip is already acquired, returns the LibQTip object. This function becomes available on your addon table when you registered it via iLib:Register()!
--- @name myAddon:GetTooltip
 -- @param name The name for the tooltip object.
 -- @param updateCallback The function name of the function which fills the tooltip with content. Must be a String. The function must be available on your addon table.
 -- @return Returns a LibQTip object.
@@ -423,7 +422,8 @@ end
 -- @param main The LibQTip object to which the OnUpdate script will be attached.
 -- @param ... Infinite number of frames to check mouse hovering for.
 -- @usage myAddon:SetSharedAutoHideDelay(0.25, tip1, anchor, tip2)
--- -- Neither tip1 or tip2 are hidden if one of the three frames is hovered with the cursor.
+-- -- Neither tip1 nor tip2 are hidden
+-- -- if one of the three frames is hovered with the cursor.
 function iLib:SetSharedAutoHideDelay(delay, main, ...)
 	main.delay = delay
 	main.lastUpdate = 0
