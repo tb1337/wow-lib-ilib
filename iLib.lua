@@ -336,7 +336,8 @@ local function tip_OnRelease(tip)
 	tips[''] = nil
 end
 
---- Acquires a LibQTip tooltip with the specified name and registers an updateCallback with it. This function becomes available on your addon table when you registered it via iLib:Register()!
+--- Acquires a LibQTip tooltip with the specified name and registers an updateCallback with it. If the tooltip is already acquired, returns the LibQTip object. This function becomes available on your addon table when you registered it via iLib:Register()!
+-- @name myAddon:GetTooltip(name, updateCallback)
 -- @param name The name for the tooltip object.
 -- @param updateCallback The function name of the function which fills the tooltip with content. Must be a String. The function must be available on your addon table.
 -- @return Returns a LibQTip object.
@@ -369,7 +370,7 @@ end
 
 --- Checks if the given tooltips are currently displayed and if yes, fires their update callback. This function becomes available on your addon table when you registered it via iLib:Register()!
 -- @param ... The names of the tooltips to be checked.
--- @usage A WoW API event got fired and several tooltips needs an update.
+-- @usage -- A WoW API event got fired and several tooltips needs an update.
 -- myAddon:CheckTooltips("Main", "Second", "Special", ...)
 function iLib:CheckTooltips(...)
 	local name
@@ -383,7 +384,8 @@ end
 
 --- Iterates over all LibQTip tooltips and hides them, if they are acquired by the iLib. This function becomes available on your addon table when you registered it via iLib:Register()!
 -- @usage myAddon:HideAllTooltips();
--- -- All previously displayed tooltips are hidden now. You may want to display a new one, now.
+-- -- All previously displayed tooltips are hidden now.
+-- -- You may want to display a new one, now.
 function iLib:HideAllTooltips()
 	for k, v in LibQTip:IterateTooltips() do
 		if type(k) == "string" and strsub(k, 1, 6) == "iAddon" then
