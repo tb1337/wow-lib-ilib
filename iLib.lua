@@ -1,4 +1,4 @@
-local MAJOR_VERSION, MINOR_VERSION = "iLib", 5
+local MAJOR_VERSION, MINOR_VERSION = "iLib", 6
 if not LibStub then error(MAJOR_VERSION .. " requires LibStub") end
 
 local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
@@ -387,7 +387,7 @@ end
 -- -- You may want to display a new one, now.
 function iLib:HideAllTooltips()
 	for k, v in LibQTip:IterateTooltips() do
-		if type(k) == "string" and strsub(k, 1, 6) == "iAddon" then
+		if type(k) == "string" and strsub(k, 1, 4) == "iLib" then
 			v:Release()
 		end
 	end
