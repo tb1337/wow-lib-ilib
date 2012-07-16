@@ -347,7 +347,7 @@ end
 -- local tip = myAddon:GetTooltip("Main")
 function iLib:GetTooltip(name, updateCallback)
 	local name2 = tip_name(self, name)
-	if self:IsTooltip(name) then
+	if self:IsTooltip(name) or tips[name2] then
 		return LibQTip:Acquire(name2)
 	end
 	tips[name2] = updateCallback
