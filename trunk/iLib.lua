@@ -1,4 +1,4 @@
-local MAJOR_VERSION, MINOR_VERSION = "iLib", 6
+local MAJOR_VERSION, MINOR_VERSION = "iLib", 8
 if not LibStub then error(MAJOR_VERSION .. " requires LibStub") end
 
 local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
@@ -11,13 +11,13 @@ local _G = _G
 
 local ME_UPDATE, EQUAL, USER_UPDATE = 1, 2, 3 -- currently we only use USER_UPDATE to check if we need to send an update message
 
-local inGroup = false -- determines if we are in a group
 local addonsChanged = false -- determines if new mods registered with the iLib
 local player = _G.GetUnitName("player")
 
-local askGuild = true -- will be false if we sent a version sync message to the guild
-local askGroup = true -- ...to the group
-local askPVP   = true -- ...to the battleground
+local inGuild = false -- determines if we are in a guild
+local inGroup = false -- determines if we are in a group
+local inInstanceGroup = false -- determines if we are in an instance group
+local inInstanceType = "none" -- determines our instance type
 
 local Embed -- will become a function later
 
@@ -111,7 +111,7 @@ local function iLib_OnUpdate(self, elapsed)
 end
 
 -- On received a comm message, we check if its another player and warn him, if his versions are lower than ours
--- We also warn player, if they warn another player, but with as well too low versions
+-- We also warn players, if they warn another players, but with as well too low versions
 function iLib:CommReceived(prefix, msg, chat, user)
 	msg = msgdecode(msg)
 	--@do-not-package@
@@ -135,33 +135,38 @@ end
 iLib:RegisterComm("iLib", "CommReceived")
 
 -- Event Handler
--- If we are logging in, we send Ask querys to guild (if in guild), group (if in group), pvp (if in pvp)
+-- If we are logging in, we send Ask querys to guild (if in guild), instance (if in instance) and group (if in group)
 -- And if our guild changes or the group changes
 local function iLib_OnEvent(self, event)
-	if askGuild and (event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_GUILD_UPDATE") then
-		if _G.IsInGuild() then
-			askGuild = false
+
+	-- check guild
+	if( event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_GUILD_UPDATE" ) then
+		if( not inGuild and _G.IsInGuild() ) then
 			send_ask_message("GUILD")
 		end
+		inGuild = _G.IsInGuild() and true or false
 	end
-	if askGroup and (event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE") then
-		if _G.IsInRaid() or _G.IsInGroup() then
-			if not inParty then
-				inGroup = true
-				askGroup = false
-				send_ask_message("RAID")
-			end
-		else
-			inGroup = false
-			askGroup = true
+	
+	-- check newstyle instance groups
+	if event == "PLAYER_ENTERING_WORLD" then
+		local inInstance, instanceType = _G.IsInInstance()
+		if ( not inInstanceGroup and inInstance ) or ( inInstance and not(inInstanceType == instanceType) ) then
+			send_ask_message("INSTANCE_CHAT")
 		end
+		inInstanceGroup = inInstance and true or false
+		inInstanceType  = instanceType
 	end
-	if askPVP and event == "PLAYER_ENTERING_WORLD" then
-		if _G.UnitInBattleground("player") then
-			askPVP = false
-			send_ask_message("BATTLEGROUND")
+	
+	-- check "old" raid/group only if not in an instance group to prevent double asking for versions
+	if not inInstanceGroup and (event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE") then
+		local group = _G.IsInRaid() or _G.IsInGroup()
+		local members = _G.GetNumGroupMembers() >= 2 or _G.GetNumRaidMembers() >= 2
+		if members and not inGroup and group then
+			send_ask_message("RAID")
 		end
+		inGroup = members and group
 	end
+	
 end
 
 -- This function inits our frame which will listen for events and OnUpdates
