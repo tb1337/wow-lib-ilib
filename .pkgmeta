@@ -1,15 +1,5 @@
 package-as: iLib
 enable-nolib-creation: no
-
-externals:
-  Libs/LibStub:
-    url: svn://svn.wowace.com/wow/libstub/mainline/trunk
-  Libs/LibQTip-1.0:
-    url: svn://svn.wowace.com/wow/libqtip-1-0/mainline/trunk
-  Libs/LibCompress:
-    url: svn://svn.wowace.com/wow/libcompress/mainline/trunk
-  Libs/AceComm-3.0:
-    url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceComm-3.0
     
 optional-dependencies:
   - ace3
