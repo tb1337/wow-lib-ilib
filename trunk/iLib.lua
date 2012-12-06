@@ -1,4 +1,4 @@
-local MAJOR_VERSION, MINOR_VERSION = "iLib", 8
+local MAJOR_VERSION, MINOR_VERSION = "iLib", 9
 if not LibStub then error(MAJOR_VERSION .. " requires LibStub") end
 
 local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
@@ -141,10 +141,11 @@ local function iLib_OnEvent(self, event)
 
 	-- check guild
 	if( event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_GUILD_UPDATE" ) then
-		if( not inGuild and _G.IsInGuild() ) then
+		local guild = _G.IsInGuild()
+		if( not inGuild and guild ) then
 			send_ask_message("GUILD")
 		end
-		inGuild = _G.IsInGuild() and true or false
+		inGuild = guild and true or false
 	end
 	
 	-- check newstyle instance groups
@@ -159,8 +160,8 @@ local function iLib_OnEvent(self, event)
 	
 	-- check "old" raid/group only if not in an instance group to prevent double asking for versions
 	if not inInstanceGroup and (event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE") then
-		local group = _G.IsInRaid() or _G.IsInGroup()
-		local members = (_G.GetNumGroupMembers() and _G.GetNumGroupMembers() >= 2 )
+		local group = _G.IsInGroup()
+		local members = _G.GetNumGroupMembers(_G.LE_PARTY_CATEGORY_HOME) >= 2
 		if members and not inGroup and group then
 			send_ask_message("RAID")
 		end
@@ -331,6 +332,8 @@ local function tooltip_update(t, name, name2)
 	end
 	if type(t[tips[name2]]) == "function" then
 		t[tips[name2]](t, t:GetTooltip(name))
+	elseif type(tips[name2]) == "function" then
+		tips[name2](t)
 	end
 end
 
@@ -343,10 +346,11 @@ end
 
 --- Acquires a LibQTip tooltip with the specified name and registers an updateCallback with it. If the tooltip is already acquired, returns the LibQTip object. This function becomes available on your addon table when you registered it via iLib:Register()!
 -- @param name The name for the tooltip object.
--- @param updateCallback The function name of the function which fills the tooltip with content. Must be a String. The function must be available on your addon table.
+-- @param updateCallback The function name of the function which fills the tooltip with content. Can be a String and must be available as function on your addon table. Can also be a function.
 -- @return Returns a LibQTip object.
 -- @usage -- for registering a new tooltip
 -- local tip = myAddon:GetTooltip("Main", "UpdateTooltip")
+-- local tip = myAddon:GetTooltip("Main", do_something); -- if do_something is a function
 -- 
 -- -- for getting the previously registered tooltip object
 -- local tip = myAddon:GetTooltip("Main")
