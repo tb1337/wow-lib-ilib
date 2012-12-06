@@ -160,7 +160,7 @@ local function iLib_OnEvent(self, event)
 	-- check "old" raid/group only if not in an instance group to prevent double asking for versions
 	if not inInstanceGroup and (event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE") then
 		local group = _G.IsInRaid() or _G.IsInGroup()
-		local members = (_G.GetNumGroupMembers() and _G.GetNumGroupMembers() >= 2 ) or (_G.GetNumRaidMembers() and _G.GetNumRaidMembers() >= 2 )
+		local members = (_G.GetNumGroupMembers() and _G.GetNumGroupMembers() >= 2 )
 		if members and not inGroup and group then
 			send_ask_message("RAID")
 		end
