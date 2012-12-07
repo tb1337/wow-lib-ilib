@@ -1,0 +1,8 @@
+package-as: iLib
+enable-nolib-creation: no
+    
+optional-dependencies:
+  - ace3
+  - libstub
+  - libqtip-1-0
+  - libcompress
