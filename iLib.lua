@@ -1,4 +1,4 @@
-local MAJOR_VERSION, MINOR_VERSION = "iLib", 9
+local MAJOR_VERSION, MINOR_VERSION = "iLib", 10
 if not LibStub then error(MAJOR_VERSION .. " requires LibStub") end
 
 local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
