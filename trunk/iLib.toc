@@ -1,8 +1,9 @@
 ﻿## Interface: 50100
-## Version: 0.9
+## Version: 1.0
 ## Title: Lib: iLib
-## Notes: A library which provides shared functionality for grdn's broker series.
+## Notes: A library which provides shared functionality for grdn's addons.
 ## Author: grdn
 ## OptionalDeps: Ace3, LibCompress, LibQTip-1.0
+## SavedVariables: iLib_Versions
 
 lib.xml
