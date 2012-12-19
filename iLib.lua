@@ -608,4 +608,8 @@ Embed = function(t, addon)
 	t.baseName = addon; -- I chose t.baseName because AceAddon-3.0 uses it, too - many mods use AceAddon-3.0 :)
 end
 
+function iLib:EmbedTooltipFunctions(t, addon)
+	Embed(t, addon);
+end
+
 collectgarbage(); -- cheats, haha :)
