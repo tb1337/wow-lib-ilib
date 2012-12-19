@@ -1,9 +1,11 @@
-local MAJOR_VERSION, MINOR_VERSION = "iLib", 30
+local MAJOR_VERSION, MINOR_VERSION = "iLib", 31
 if( not LibStub ) then error(MAJOR_VERSION.." requires LibStub"); end
 
 local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION);
 if( not iLib ) then return; end
-LibStub("AceComm-3.0"):Embed(iLib); -- we need this to communicate with other users for version syncing
+
+local AceComm = LibStub("AceComm-3.0");
+local Compress = LibStub("LibCompress");
 
 local _G = _G;
 
@@ -21,21 +23,27 @@ local inGroup = false; -- determines if we are in a group
 local inInstanceGroup = false; -- determines if we are in an instance group
 local inInstanceType = "none"; -- determines our instance type
 
-local _update; -- will become our iLib_Versions table after the table is loaded
 local Embed; -- will become a function later
 
 --------------------------
 -- Lib initializing
 --------------------------
 
-iLib.mods = iLib.mods or {};
-setmetatable(iLib.mods, {__newindex = function(t, k, v) -- new indexes in iLib.mods will cause addonsChanged to be true
-	rawset(t, k, v);
-	mods_changed = true;
-end})
+-- hide this out from iLib table
+local mt_index = {
+	mods = iLib.mods or {},
+	warn = iLib.warn or {}, -- warn list for addon update messages
+	touch = iLib.touch or {}, -- stores whisper list, username/bool pairs
+	update = iLib.update or {},
+};
+setmetatable(iLib, {__index = mt_index});
 
-iLib.warn = iLib.warn or {}; -- warn list for addon update messages
-iLib.touch = iLib.touch or {[player] = true}; -- stores whisper list, username/bool pairs
+if( not getmetatable(iLib.mods) ) then
+	setmetatable(iLib.mods, {__newindex = function(t, k, v) -- new indexes in iLib.mods will cause addonsChanged to be true
+		rawset(t, k, v);
+		mods_changed = true;
+	end})
+end
 
 ------------------------
 -- Addon messages
@@ -82,19 +90,19 @@ do
 	-- sends our ask message
 	send_msg_ask = function(chat, user)
 		compile_addon_string();
-		iLib:SendCommMessage("iLib", LibStub("LibCompress"):CompressHuffman(ask_message), chat, (chat == "WHISPER" and user or nil), "BULK");
+		AceComm.SendCommMessage(iLib, "iLib", Compress:CompressHuffman(ask_message), chat, (chat == "WHISPER" and user or nil), "BULK");
 	end
 	
 	-- sends our addon message
 	send_msg_alist = function(chat, user)
 		compile_addon_string();
-		iLib:SendCommMessage("iLib", LibStub("LibCompress"):CompressHuffman(addon_message), chat, (chat == "WHISPER" and user or nil), "BULK");
+		AceComm.SendCommMessage(iLib, "iLib", Compress:CompressHuffman(addon_message), chat, (chat == "WHISPER" and user or nil), "BULK");
 	end
 	
 	--@do-not-package@
 	-- sends our addon list request
 	function iLib:RequestAddons(chat, user)
-		iLib:SendCommMessage("iLib", LibStub("LibCompress"):CompressHuffman(";"), chat, (chat == "WHISPER" and user or nil), "BULK");
+		AceComm.SendCommMessage(iLib, "iLib", Compress:CompressHuffman(";"), chat, (chat == "WHISPER" and user or nil), "BULK");
 	end
 	--@end-do-not-package@
 	
@@ -117,7 +125,7 @@ do
 		end
 		
 		for chat, mods in pairs(response) do
-			iLib:SendCommMessage("iLib", LibStub("LibCompress"):CompressHuffman("!%"..table.concat(mods, "%")), chat, (chat == "WHISPER" and user or nil), "BULK");
+			AceComm.SendCommMessage(iLib, "iLib", Compress:CompressHuffman("!%"..table.concat(mods, "%")), chat, (chat == "WHISPER" and user or nil), "BULK");
 		end
 		
 		_G.wipe(response[chat]);
@@ -128,21 +136,21 @@ do
 			return;
 		end
 		iLib.touch[user] = true;
-		iLib:SendCommMessage("iLib", LibStub("LibCompress"):CompressHuffman("t"), chat, (chat == "WHISPER" and user or nil), "BULK");
+		AceComm.SendCommMessage(iLib, "iLib", Compress:CompressHuffman("t"), chat, (chat == "WHISPER" and user or nil), "BULK");
 	end
 	
 	send_msg_touch_resp = function(chat, user)
-		iLib:SendCommMessage("iLib", LibStub("LibCompress"):CompressHuffman("y"), chat, (chat == "WHISPER" and user or nil), "BULK");
+		AceComm.SendCommMessage(iLib, "iLib", Compress:CompressHuffman("y"), chat, (chat == "WHISPER" and user or nil), "BULK");
 	end
 end
 
 local function set_update(addonName, version)
-	if( _update[addonName] ) then
-		if( version > _update[addonName] ) then
-			_update[addonName] = version;
+	if( iLib.update[addonName] ) then
+		if( version > iLib.update[addonName] ) then
+			iLib.update[addonName] = version;
 		end
 	else
-		_update[addonName] = version;
+		iLib.update[addonName] = version;
 	end
 end
 
@@ -191,7 +199,7 @@ do
 	end
 	
 	function iLib:CommReceived(prefix, msg, chat, user)
-		msg = LibStub("LibCompress"):DecompressHuffman(msg);
+		msg = Compress:DecompressHuffman(msg) or "";
 		--@do-not-package@
 		print(user.." ("..chat..") - "..msg);
 		--@end-do-not-package@
@@ -211,30 +219,23 @@ do
 					end
 				end
 			end
-		elseif( cmd == ";" ) then
+		elseif( chat == "WHISPER" and cmd == ";" ) then
 			send_msg_alist(chat, user);
-		elseif( cmd == "t" ) then
+		elseif( chat == "WHISPER" and cmd == "t" ) then
 			send_msg_touch_resp(chat, user);
 			send_msg_ask(chat, user);
-		elseif( cmd == "y" and self.touch[user] ) then
+		elseif( chat == "WHISPER" and cmd == "y" and self.touch[user] ) then
 			send_msg_ask(chat, user);
 		end
 	end
 	
-	iLib:RegisterComm("iLib", "CommReceived");
+	AceComm.RegisterComm(iLib, "iLib", "CommReceived");
 end
 
 -- Event Handler
 -- If we are logging in, we send Ask messages to guild (if in guild), instance (if in instance) and group (if in group)
 -- And if our guild changes or the group changes
 local function iLib_OnEvent(self, event, ...)
-
-	if( event == "ADDON_LOADED" and select(1, ...) == "iLib" ) then
-		iLib_Versions = iLib_Versions or {};
-		_update = iLib_Versions;
-		self:UnregisterEvent("ADDON_LOADED");
-		return;
-	end
 
 	-- check guild
 	if( event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_GUILD_UPDATE" ) then
@@ -310,16 +311,17 @@ local function init_frame()
 	local f = _G.CreateFrame("Frame")	;
 	f.warnElapsed = 0;
 	
-	setmetatable(iLib.warn, {
-		__newindex = function(t, k, v)
-			warnTime = (random(9.5, 50) / 10);
-			warnExec = true;
-			f.warnElapsed = 0;
-			rawset(t, k, v);
-		end
-	});
+	if( not getmetatable(iLib.warn) ) then
+		setmetatable(iLib.warn, {
+			__newindex = function(t, k, v)
+				warnTime = (random(9.5, 50) / 10);
+				warnExec = true;
+				f.warnElapsed = 0;
+				rawset(t, k, v);
+			end
+		});
+	end
 	
-	f:RegisterEvent("ADDON_LOADED");
 	f:RegisterEvent("PLAYER_ENTERING_WORLD");
 	f:RegisterEvent("PLAYER_GUILD_UPDATE");
 	f:RegisterEvent("GROUP_ROSTER_UPDATE");
@@ -406,7 +408,7 @@ function iLib:IsUpdate(addonName)
 		return false;
 	end
 	
-	return self.mods[addonName] < _update[addonName];
+	return self.mods[addonName] < iLib.update[addonName];
 end
 
 --- Checks if the given addon is registered with the iLib.
