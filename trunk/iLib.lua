@@ -477,10 +477,10 @@ local function tooltip_update(t, name, name2)
 	
 	-- function is on the addon table
 	if( type(t[tips[name2]]) == "function" ) then
-		pcall(t[tips[name2]], t, t:GetTooltip(name));
+		t[tips[name2]](t, t:GetTooltip(name));
 	-- function is not on the addon table
 	elseif( type(tips[name2]) == "function" ) then
-		pcall(tips[name2], t:GetTooltip(name));
+		tips[name2](t:GetTooltip(name));
 	end
 end
 
