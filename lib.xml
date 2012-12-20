@@ -3,7 +3,6 @@
 	<Script file="Libs\LibStub\LibStub.lua" />
 	<Script file="Libs\AceComm-3.0\ChatThrottleLib.lua" />
 	<Script file="Libs\AceComm-3.0\AceComm-3.0.lua" />
-	<Script file="Libs\LibCompress\LibCompress.lua" />
 	<Script file="Libs\LibQTip-1.0\LibQTip-1.0.lua" />
 	<Script file="iLib.lua" />
 </Ui>
