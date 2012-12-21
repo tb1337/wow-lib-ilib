@@ -160,7 +160,7 @@ end
 -- Each necessary update consists of two indexes in this array.
 --  index 1: the addon name
 --  index 2: the chat where to communicate
-function warnlist_add(chat, user, addon)
+local function warnlist_add(chat, user, addon)
 	if( not iLib.warn[user] ) then
 		iLib.warn[user] = {};
 	end
