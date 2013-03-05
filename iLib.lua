@@ -296,7 +296,7 @@ local function iLib_OnEvent(self, event, ...)
 	if( event == "UPDATE_MOUSEOVER_UNIT" ) then
 		local user, unit = _G.GameTooltip:GetUnit();
 		
-		if( unit and user ~= _G.UNKNOWN and _G.UnitIsPlayer(unit) and _G.UnitCanCooperate("player", unit) ) then
+		if( unit and user ~= _G.UNKNOWN and user ~= player and _G.UnitIsPlayer(unit) and _G.UnitCanCooperate("player", unit) ) then
 			local name, server = _G.UnitName(unit);
 			user = server and name.."-"..server or name;
 			
