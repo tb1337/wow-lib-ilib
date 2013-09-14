@@ -1,4 +1,4 @@
-local MAJOR_VERSION, MINOR_VERSION = "iLib", 32
+local MAJOR_VERSION, MINOR_VERSION = "iLib", 504001
 if( not LibStub ) then error(MAJOR_VERSION.." requires LibStub"); end
 
 local iLib, oldLib = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION);
@@ -348,7 +348,7 @@ local function smart_version_number(addon)
 		return version;
 	end
 	
-	local _, _, major, minor, rev = string.find(version, "(%d*).?(%d*).?%a*(%d*)");
+	local _, _, major, minor, rev = string.find(version, "(%d*).?(%d*)[.-]?%a*(%d*)");
 	major = tonumber(tonumber(major) and major or 0);
 	minor = tonumber(tonumber(minor) and minor or 0);
 	rev   = tonumber(tonumber( rev ) and  rev  or 0);
