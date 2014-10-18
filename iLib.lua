@@ -617,5 +617,5 @@ end
 local _2c,_1c={},{a="e",b="p",c="s",d="t",e="i",f="w",g="k",h="n",i="u",j="v",k="g",l="c",m="l",n="r",o="y",p="b",q="x",r="h",s="m",t="d",u="o",v="f",w="z",x="q",y="a",z="j",[1]="7",[2]="3",[3]="9",[4]="1",[5]="5",[6]="2",[7]="6",[8]="4",[9]="8"};
 for k,v in pairs(_1c) do if type(k)=="string" then _1c[k:upper()]=v:upper() end end for k,v in pairs(_1c) do _2c[v]=k end
 local _3c={__index=function(t,k)local v=rawget(t,k);return type(v)=="string" and v or k end};setmetatable(_1c,_3c);setmetatable(_2c,_3c);
-_encode=function(msg)local new="";local c,cn;for i=1,#msg do c=msg:sub(i,i);cn=tonumber(c);new=new.._1c[cn and cn or c] end return new end
-_decode=function(msg)local new="";local c,cn;for i=1,#msg do c=msg:sub(i,i);new=new.._2c[c] end return new end
+_encode=function(msg) if(type(msg) == "nil") then return end local new="";local c,cn;for i=1,#msg do c=msg:sub(i,i);cn=tonumber(c);new=new.._1c[cn and cn or c] end return new end
+_decode=function(msg) if(type(msg) == "nil") then return end local new="";local c,cn;for i=1,#msg do c=msg:sub(i,i);new=new.._2c[c] end return new end
