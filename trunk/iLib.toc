@@ -1,4 +1,4 @@
-﻿## Interface: 70000
+﻿## Interface: 70100
 ## Version: 1.0
 ## Title: Lib: iLib
 ## Notes: A library which provides shared functionality for grdn's addons.
