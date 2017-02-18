@@ -126,7 +126,7 @@ do
 		
 		for chat, mods in pairs(response) do
 			--@do-not-package@
-			print((user or "").." ("..(chat or "")..") - "..("!%"..table.concat(mods, "%")));
+			--print((user or "").." ("..(chat or "")..") - "..("!%"..table.concat(mods, "%")));
 			--@end-do-not-package@
 			AceComm.SendCommMessage(iLib, "iLib", _encode("!%"..table.concat(mods, "%")), chat, (chat == "WHISPER" and user or nil), "BULK");
 		end
@@ -205,7 +205,7 @@ do
 	function iLib:CommReceived(prefix, msg, chat, user)
 		msg = _decode(msg) or "";
 		--@do-not-package@
-		print(user.." ("..chat..") - "..msg);
+		--print(user.." ("..chat..") - "..msg);
 		--@end-do-not-package@
 		if( user == player ) then return; end
 		
