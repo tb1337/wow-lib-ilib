@@ -1,2 +1,15 @@
 package-as: iLib
 enable-nolib-creation: no
+
+externals:
+  Libs/CallbackHandler-1.0:
+    url: svn://svn.wowace.com/wow/callbackhandler/mainline/trunk/CallbackHandler-1.0
+  Libs/LibStub:
+    url: svn://svn.wowace.com/wow/libstub/mainline/trunk
+  Libs/AceComm-3.0:
+    url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceComm-3.0
+  Libs/LibQTip-1.0:
+    url: https://repos.wowace.com/wow/libqtip-1-0/trunk
+
+optional-dependencies:
+  - ace3
