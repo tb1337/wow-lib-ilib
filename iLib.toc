@@ -1,4 +1,4 @@
-## Interface: 80200
+## Interface: 90002
 ## Version: 1.2
 ## Title: Lib: iLib
 ## Notes: A library which provides shared functionality for grdn's addons.
